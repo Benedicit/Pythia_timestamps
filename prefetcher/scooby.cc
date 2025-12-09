@@ -668,6 +668,7 @@ void Scooby::reward(Scooby_PTEntry *ptentry)
 {
 	MYLOG("reward PT evict %lx state %x act_idx %u act %d", ptentry->address, ptentry->state->value(), ptentry->action_index, Actions[ptentry->action_index]);
 
+	// TODO: Check also in case of untimely that the diff is set and handle it prperly
 	stats.reward.train.called++;
 	assert(!ptentry->has_reward);
 	/* this is called during eviction from prefetch tracker
@@ -798,7 +799,18 @@ void Scooby::register_fill(uint64_t address)
 		for(uint32_t index = 0; index < ptentries.size(); ++index)
 		{
 			stats.register_fill.set_total++;
-			ptentries[index]->is_filled = true;
+			if (!ptentries[index]->is_filled) {
+				ptentries[index]->is_filled = true;
+
+				uint64_t current_time = get_cpu_cycle(0);
+				if (!ptentries[index]->timestamp_filled) { //if there is no existing timestamp and the filled bit is not already set, correct and timely
+					ptentries[index]->timestamp_filled = current_time;
+				} else { //if there is already a timestamp and the filled bit is not alreaset, it represents the time the cpu requested the address -> correct but untimely.
+					uint64_t diff = current_time - ptentries[index]->timestamp_filled;
+					assign_reward(ptentries[index], correct_timestamp_untimely);
+				}
+
+			}
 			MYLOG("fill PT hit. pref with act_idx %u act %d", ptentries[index]->action_index, Actions[ptentries[index]->action_index]);
 		}
 	}

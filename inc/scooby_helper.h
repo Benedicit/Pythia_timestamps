@@ -35,6 +35,8 @@ typedef enum
 	correct_untimely,
 	correct_timely,
 	out_of_bounds,
+	correct_timestamp_timely,
+	correct_timestamp_untimely,
 	tracker_hit,
 
 	num_rewards
@@ -155,11 +157,13 @@ public:
 	uint32_t action_index;
 	/* set when prefetched line is filled into cache 
 	 * check during reward to measure timeliness */
+	// TODO: maybe only use timestamps
 	bool is_filled;
+	uint64_t timestamp_filled;
 	/* set when prefetched line is alredy found in cache
 	 * donotes extreme untimely prefetch */
 	bool pf_cache_hit;
-	int32_t reward;
+	int64_t reward;
 	RewardType reward_type;
 	bool has_reward;
 	vector<bool> consensus_vec; // only used in featurewise engine
@@ -169,6 +173,7 @@ public:
 		is_filled = false;
 		pf_cache_hit = false;
 		reward = 0;
+		timestamp_filled = 0;
 		reward_type = RewardType::none;
 		has_reward = false;
 	}
