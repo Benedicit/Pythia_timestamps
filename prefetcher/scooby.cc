@@ -82,6 +82,8 @@ namespace knob
 	extern int32_t  scooby_reward_hbw_tracker_hit;
 	extern vector<int32_t> scooby_last_pref_offset_conf_thresholds_hbw;
 	extern vector<int32_t> scooby_dyn_degrees_type2_hbw;
+	extern int32_t scooby_reward_timely_divisor;
+	extern int32_t scooby_reward_untimely_divisor;
 
 	/* Learning Engine knobs */
 	extern bool     le_enable_trace;
@@ -649,17 +651,7 @@ void Scooby::reward(uint64_t address)
 			return;
 		}
 
-		if(ptentry->is_filled) /* timely */
-		{
-			assign_reward(ptentry, RewardType::correct_timely);
-			MYLOG("assigned reward correct_timely(%d)", ptentry->reward);
-		}
-		else
-		{
-			assign_reward(ptentry, RewardType::correct_untimely);
-			MYLOG("assigned reward correct_untimely(%d)", ptentry->reward);
-		}
-		ptentry->has_reward = true;
+		ptentry->timestamp_requested = get_cpu_cycle(0);
 	}
 }
 
@@ -678,6 +670,21 @@ void Scooby::reward(Scooby_PTEntry *ptentry)
 	{
 		assign_reward(ptentry, RewardType::none);
 		MYLOG("assigned reward no_pref(%d)", ptentry->reward);
+	}
+	else if (ptentry->timestamp_filled && ptentry->timestamp_requested)
+	{
+		/* check if it was filled before being evicted */
+		// TODO: set offset to make prefetching a bit earlier more desirable
+		if(ptentry->timestamp_filled < ptentry->timestamp_requested) /* untimely */
+		{
+			assign_reward(ptentry, RewardType::correct_untimely);
+			MYLOG("assigned reward correct_untimely(%d)", ptentry->reward);
+		}
+		else /* incorrect */
+		{
+			assign_reward(ptentry, RewardType::incorrect);
+			MYLOG("assigned reward incorrect(%d)", ptentry->reward);
+		}
 	}
 	else /* incorrect prefetch */
 	{
@@ -724,11 +731,13 @@ int32_t Scooby::compute_reward(Scooby_PTEntry *ptentry, RewardType type)
 
 	if(type == RewardType::correct_timely)
 	{
-		reward = high_bw ? knob::scooby_reward_hbw_correct_timely : knob::scooby_reward_correct_timely;
+		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_timely : knob::scooby_reward_correct_timely;
+		reward = baseReward - (ptentry->timestamp_requested - ptentry->timestamp_filled) / knob::scooby_reward_timely_divisor;
 	}
 	else if(type == RewardType::correct_untimely)
 	{
-		reward = high_bw ? knob::scooby_reward_hbw_correct_untimely : knob::scooby_reward_correct_untimely;
+		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_untimely : knob::scooby_reward_correct_untimely;
+		reward = baseReward - (ptentry->timestamp_filled - ptentry->timestamp_requested) / knob::scooby_reward_untimely_divisor;
 	}
 	else if(type == RewardType::incorrect)
 	{
@@ -801,15 +810,7 @@ void Scooby::register_fill(uint64_t address)
 			stats.register_fill.set_total++;
 			if (!ptentries[index]->is_filled) {
 				ptentries[index]->is_filled = true;
-
-				uint64_t current_time = get_cpu_cycle(0);
-				if (!ptentries[index]->timestamp_filled) { //if there is no existing timestamp and the filled bit is not already set, correct and timely
-					ptentries[index]->timestamp_filled = current_time;
-				} else { //if there is already a timestamp and the filled bit is not alreaset, it represents the time the cpu requested the address -> correct but untimely.
-					uint64_t diff = current_time - ptentries[index]->timestamp_filled;
-					assign_reward(ptentries[index], correct_timestamp_untimely);
-				}
-
+				ptentries[index]->timestamp_filled = get_cpu_cycle(0);
 			}
 			MYLOG("fill PT hit. pref with act_idx %u act %d", ptentries[index]->action_index, Actions[ptentries[index]->action_index]);
 		}

@@ -35,10 +35,7 @@ typedef enum
 	correct_untimely,
 	correct_timely,
 	out_of_bounds,
-	correct_timestamp_timely,
-	correct_timestamp_untimely,
 	tracker_hit,
-
 	num_rewards
 } RewardType;
 
@@ -160,6 +157,7 @@ public:
 	// TODO: maybe only use timestamps
 	bool is_filled;
 	uint64_t timestamp_filled;
+	uint64_t timestamp_requested;
 	/* set when prefetched line is alredy found in cache
 	 * donotes extreme untimely prefetch */
 	bool pf_cache_hit;
