@@ -228,6 +228,8 @@ namespace knob
 	int32_t  scooby_reward_hbw_tracker_hit = -2;
 	vector<int32_t> scooby_last_pref_offset_conf_thresholds_hbw;
 	vector<int32_t> scooby_dyn_degrees_type2_hbw;
+	uint32_t scooby_reward_timely_divisor = 1000;
+	uint32_t scooby_reward_untimely_divisor = 1000;
 
 	/* Learning Engine */
 	bool     le_enable_trace;

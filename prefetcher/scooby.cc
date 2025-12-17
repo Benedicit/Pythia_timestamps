@@ -677,12 +677,12 @@ void Scooby::reward(Scooby_PTEntry *ptentry)
 		// TODO: set offset to make prefetching a bit earlier more desirable
 		if(ptentry->timestamp_filled < ptentry->timestamp_requested) /* untimely */
 		{
-			assign_reward(ptentry, RewardType::correct_untimely);
+			assign_reward(ptentry, RewardType::correct_timely);
 			MYLOG("assigned reward correct_untimely(%d)", ptentry->reward);
 		}
 		else /* incorrect */
 		{
-			assign_reward(ptentry, RewardType::incorrect);
+			assign_reward(ptentry, RewardType::correct_untimely);
 			MYLOG("assigned reward incorrect(%d)", ptentry->reward);
 		}
 	}
@@ -732,12 +732,12 @@ int32_t Scooby::compute_reward(Scooby_PTEntry *ptentry, RewardType type)
 	if(type == RewardType::correct_timely)
 	{
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_timely : knob::scooby_reward_correct_timely;
-		reward = baseReward - (ptentry->timestamp_requested - ptentry->timestamp_filled) / knob::scooby_reward_timely_divisor;
+		reward = baseReward - (ptentry->timestamp_requested - ptentry->timestamp_filled) /*/ knob::scooby_reward_timely_divisor*/;
 	}
 	else if(type == RewardType::correct_untimely)
 	{
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_untimely : knob::scooby_reward_correct_untimely;
-		reward = baseReward - (ptentry->timestamp_filled - ptentry->timestamp_requested) / knob::scooby_reward_untimely_divisor;
+		reward = baseReward - (ptentry->timestamp_filled - ptentry->timestamp_requested) /* / knob::scooby_reward_untimely_divisor*/;
 	}
 	else if(type == RewardType::incorrect)
 	{
