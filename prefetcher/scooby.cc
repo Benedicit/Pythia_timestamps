@@ -82,8 +82,8 @@ namespace knob
 	extern int32_t  scooby_reward_hbw_tracker_hit;
 	extern vector<int32_t> scooby_last_pref_offset_conf_thresholds_hbw;
 	extern vector<int32_t> scooby_dyn_degrees_type2_hbw;
-	extern int32_t scooby_reward_timely_divisor;
-	extern int32_t scooby_reward_untimely_divisor;
+	extern uint32_t scooby_reward_timely_divisor;
+	extern uint32_t scooby_reward_untimely_divisor;
 
 	/* Learning Engine knobs */
 	extern bool     le_enable_trace;
@@ -648,10 +648,24 @@ void Scooby::reward(uint64_t address)
 		{
 			MYLOG("entry already has reward: %d", ptentry->reward);
 			stats.reward.demand.has_reward++;
-			return;
+
+			// Already rewarded this PT entry (e.g., earlier demand reuse or fill-time reward).
+			// Use `continue` (not `return`) so we still process other matching PT entries when
+			// reward-all / track-multiple is enabled (or if duplicates exist). This avoids
+			// skipping rewards/timestamp updates for remaining entries.
+			continue;
 		}
 
-		ptentry->timestamp_requested = get_cpu_cycle(0);
+		// Set timestamp for demand access if not set
+		if (ptentry->timestamp_requested == 0)
+			ptentry->timestamp_requested = get_cpu_cycle(0);
+
+		// Reward as timely if fill was before demand
+		if(ptentry->timestamp_filled != 0 && ptentry->timestamp_filled <= ptentry->timestamp_requested)
+		{
+			assign_reward(ptentry, RewardType::correct_timely);
+			ptentry->has_reward = true;
+		}
 	}
 }
 
@@ -662,7 +676,10 @@ void Scooby::reward(Scooby_PTEntry *ptentry)
 
 	// TODO: Check also in case of untimely that the diff is set and handle it prperly
 	stats.reward.train.called++;
-	assert(!ptentry->has_reward);
+
+	if(ptentry->has_reward)
+		return;
+
 	/* this is called during eviction from prefetch tracker
 	 * that means, this address doesn't see a demand reuse.
 	 * hence it either can be incorrect, or no prefetch */
@@ -670,21 +687,6 @@ void Scooby::reward(Scooby_PTEntry *ptentry)
 	{
 		assign_reward(ptentry, RewardType::none);
 		MYLOG("assigned reward no_pref(%d)", ptentry->reward);
-	}
-	else if (ptentry->timestamp_filled && ptentry->timestamp_requested)
-	{
-		/* check if it was filled before being evicted */
-		// TODO: set offset to make prefetching a bit earlier more desirable
-		if(ptentry->timestamp_filled < ptentry->timestamp_requested) /* untimely */
-		{
-			assign_reward(ptentry, RewardType::correct_timely);
-			MYLOG("assigned reward correct_untimely(%d)", ptentry->reward);
-		}
-		else /* incorrect */
-		{
-			assign_reward(ptentry, RewardType::correct_untimely);
-			MYLOG("assigned reward incorrect(%d)", ptentry->reward);
-		}
 	}
 	else /* incorrect prefetch */
 	{
@@ -732,13 +734,15 @@ int32_t Scooby::compute_reward(Scooby_PTEntry *ptentry, RewardType type)
 	if(type == RewardType::correct_timely)
 	{
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_timely : knob::scooby_reward_correct_timely;
-		reward = baseReward - (ptentry->timestamp_requested - ptentry->timestamp_filled) /*/ knob::scooby_reward_timely_divisor*/;
+		uint32_t div = knob::scooby_reward_timely_divisor ? knob::scooby_reward_timely_divisor : 1;
+		reward = baseReward - (int32_t)((ptentry->timestamp_requested - ptentry->timestamp_filled) / div);
 	}
 	else if(type == RewardType::correct_untimely)
 	{
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_untimely : knob::scooby_reward_correct_untimely;
-		reward = baseReward - (ptentry->timestamp_filled - ptentry->timestamp_requested) /* / knob::scooby_reward_untimely_divisor*/;
-	}
+		uint32_t div = knob::scooby_reward_untimely_divisor ? knob::scooby_reward_untimely_divisor : 1;
+    	reward = baseReward - (int32_t)((ptentry->timestamp_filled - ptentry->timestamp_requested) / div);
+	}^
 	else if(type == RewardType::incorrect)
 	{
 		reward = high_bw ? knob::scooby_reward_hbw_incorrect : knob::scooby_reward_incorrect;
@@ -811,6 +815,13 @@ void Scooby::register_fill(uint64_t address)
 			if (!ptentries[index]->is_filled) {
 				ptentries[index]->is_filled = true;
 				ptentries[index]->timestamp_filled = get_cpu_cycle(0);
+			}
+
+			// If the fill is late (fill happens after demand), mark as correct_untimely and set reward
+			if(!ptentries[index]->has_reward && ptentries[index]->timestamp_requested != 0 && 
+				ptentries[index]->timestamp_filled > ptentries[index]->timestamp_requested)
+			{
+				assign_reward(ptentries[index], RewardType::correct_untimely);
 			}
 			MYLOG("fill PT hit. pref with act_idx %u act %d", ptentries[index]->action_index, Actions[ptentries[index]->action_index]);
 		}

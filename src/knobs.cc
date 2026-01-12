@@ -1089,6 +1089,14 @@ int parse_knobs(void* user, const char* section, const char* name, const char* v
 	{
 		knob::scooby_dyn_degrees_type2_hbw = get_array_int(value);
 	}
+	else if (MATCH("", "scooby_reward_timely_divisor"))
+	{
+		knob::scooby_reward_timely_divisor = atoi(value);
+	}
+	else if (MATCH("", "scooby_reward_untimely_divisor"))
+	{
+		knob::scooby_reward_untimely_divisor = atoi(value);
+	}
 
 	/* Learning Engine */
 	else if (MATCH("", "le_enable_trace"))

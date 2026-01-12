@@ -172,6 +172,7 @@ public:
 		pf_cache_hit = false;
 		reward = 0;
 		timestamp_filled = 0;
+		timestamp_requested = 0;
 		reward_type = RewardType::none;
 		has_reward = false;
 	}
