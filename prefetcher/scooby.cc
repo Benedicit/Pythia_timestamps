@@ -734,13 +734,13 @@ int32_t Scooby::compute_reward(Scooby_PTEntry *ptentry, RewardType type)
 	if(type == RewardType::correct_timely)
 	{
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_timely : knob::scooby_reward_correct_timely;
-		uint32_t div = knob::scooby_reward_timely_divisor ? knob::scooby_reward_timely_divisor : 1;
+		uint32_t div = knob::scooby_reward_timely_divisor;
 		reward = baseReward - (int32_t)((ptentry->timestamp_requested - ptentry->timestamp_filled) / div);
 	}
 	else if(type == RewardType::correct_untimely)
 	{
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_untimely : knob::scooby_reward_correct_untimely;
-		uint32_t div = knob::scooby_reward_untimely_divisor ? knob::scooby_reward_untimely_divisor : 1;
+		uint32_t div = knob::scooby_reward_untimely_divisor;
     	reward = baseReward - (int32_t)((ptentry->timestamp_filled - ptentry->timestamp_requested) / div);
 	}^
 	else if(type == RewardType::incorrect)
