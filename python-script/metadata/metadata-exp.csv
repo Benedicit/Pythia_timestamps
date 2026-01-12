@@ -1,0 +1,37 @@
+Exp	Exp Name	MTPS
+nopref	nopref	2400
+mlop	mlop	2400
+spp	spp	2400
+bingo	bingo	2400
+pythia	pythia	2400
+nopref_MTPS150	nopref	150
+spp_dev_MTPS150	spp	150
+bingo_MTPS150	bingo	150
+mlop_MTPS150	mlop	150
+pythia_MTPS150	pythia	150
+nopref_MTPS300	nopref	300
+spp_dev_MTPS300	spp	300
+bingo_MTPS300	bingo	300
+mlop_MTPS300	mlop	300
+pythia_MTPS300	pythia	300
+nopref_MTPS600	nopref	600
+spp_dev_MTPS600	spp	600
+bingo_MTPS600	bingo	600
+mlop_MTPS600	mlop	600
+pythia_MTPS600	pythia	600
+nopref_MTPS1200	nopref	1200
+spp_dev_MTPS1200	spp	1200
+bingo_MTPS1200	bingo	1200
+mlop_MTPS1200	mlop	1200
+pythia_MTPS1200	pythia	1200
+nopref_MTPS4800	nopref	4800
+spp_dev_MTPS4800	spp	4800
+bingo_MTPS4800	bingo	4800
+mlop_MTPS4800	mlop	4800
+pythia_MTPS4800	pythia	4800
+nopref_MTPS9600	nopref	9600
+spp_dev_MTPS9600	spp	9600
+bingo_MTPS9600	bingo	9600
+mlop_MTPS9600	mlop	9600
+pythia_MTPS9600	pythia	9600	
+	
