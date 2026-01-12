@@ -156,8 +156,9 @@ public:
 	 * check during reward to measure timeliness */
 	// TODO: maybe only use timestamps
 	bool is_filled;
-	uint64_t timestamp_filled;
-	uint64_t timestamp_requested;
+	uint64_t timestamp;
+	uint64_t delta;
+
 	/* set when prefetched line is alredy found in cache
 	 * donotes extreme untimely prefetch */
 	bool pf_cache_hit;

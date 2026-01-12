@@ -657,8 +657,19 @@ void Scooby::reward(uint64_t address)
 		}
 
 		// Set timestamp for demand access if not set
-		if (ptentry->timestamp_requested == 0)
-			ptentry->timestamp_requested = get_cpu_cycle(0);
+		if (ptentry->timestamp == 0)
+			ptentry->timestamp = get_cpu_cycle(0);
+		else {
+			uint64_t delta = get_cpu_cycle(0) - ptentry->timestamp;
+			if (delta < bias) {
+				ptentry->delta = bias - delta;
+				assign_reward(ptentry, RewardType::correct_untimely);
+			} else {
+				ptentry->delta = delta - bias;
+				assign_reward(ptentry, RewardType::correct_timely);
+			}
+			ptentry->has_reward = true;
+		}
 
 		// Reward as timely if fill was before demand
 		if(ptentry->timestamp_filled != 0 && ptentry->timestamp_filled <= ptentry->timestamp_requested)
