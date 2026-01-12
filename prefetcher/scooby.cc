@@ -84,6 +84,7 @@ namespace knob
 	extern vector<int32_t> scooby_dyn_degrees_type2_hbw;
 	extern uint32_t scooby_reward_timely_divisor;
 	extern uint32_t scooby_reward_untimely_divisor;
+	extern uint64_t scooby_reward_bias;
 
 	/* Learning Engine knobs */
 	extern bool     le_enable_trace;
@@ -661,20 +662,13 @@ void Scooby::reward(uint64_t address)
 			ptentry->timestamp = get_cpu_cycle(0);
 		else {
 			uint64_t delta = get_cpu_cycle(0) - ptentry->timestamp;
-			if (delta < bias) {
-				ptentry->delta = bias - delta;
+			if (delta < knob::scooby_reward_timely_divisor) {
+				ptentry->delta = knob::scooby_reward_timely_divisor - delta;
 				assign_reward(ptentry, RewardType::correct_untimely);
 			} else {
-				ptentry->delta = delta - bias;
+				ptentry->delta = delta - knob::scooby_reward_timely_divisor;
 				assign_reward(ptentry, RewardType::correct_timely);
 			}
-			ptentry->has_reward = true;
-		}
-
-		// Reward as timely if fill was before demand
-		if(ptentry->timestamp_filled != 0 && ptentry->timestamp_filled <= ptentry->timestamp_requested)
-		{
-			assign_reward(ptentry, RewardType::correct_timely);
 			ptentry->has_reward = true;
 		}
 	}
@@ -746,14 +740,14 @@ int32_t Scooby::compute_reward(Scooby_PTEntry *ptentry, RewardType type)
 	{
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_timely : knob::scooby_reward_correct_timely;
 		uint32_t div = knob::scooby_reward_timely_divisor;
-		reward = baseReward - (int32_t)((ptentry->timestamp_requested - ptentry->timestamp_filled) / div);
+		reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
 	}
 	else if(type == RewardType::correct_untimely)
 	{
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_untimely : knob::scooby_reward_correct_untimely;
 		uint32_t div = knob::scooby_reward_untimely_divisor;
-    	reward = baseReward - (int32_t)((ptentry->timestamp_filled - ptentry->timestamp_requested) / div);
-	}^
+    	reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
+	}
 	else if(type == RewardType::incorrect)
 	{
 		reward = high_bw ? knob::scooby_reward_hbw_incorrect : knob::scooby_reward_incorrect;
@@ -825,13 +819,13 @@ void Scooby::register_fill(uint64_t address)
 			stats.register_fill.set_total++;
 			if (!ptentries[index]->is_filled) {
 				ptentries[index]->is_filled = true;
-				ptentries[index]->timestamp_filled = get_cpu_cycle(0);
+				ptentries[index]->timestamp = get_cpu_cycle(0);
 			}
 
 			// If the fill is late (fill happens after demand), mark as correct_untimely and set reward
-			if(!ptentries[index]->has_reward && ptentries[index]->timestamp_requested != 0 && 
-				ptentries[index]->timestamp_filled > ptentries[index]->timestamp_requested)
+			if(!ptentries[index]->has_reward && ptentries[index]->timestamp != 0)
 			{
+				ptentries[index]->delta = get_cpu_cycle(0) - ptentries[index]->timestamp + knob::scooby_reward_timely_divisor;
 				assign_reward(ptentries[index], RewardType::correct_untimely);
 			}
 			MYLOG("fill PT hit. pref with act_idx %u act %d", ptentries[index]->action_index, Actions[ptentries[index]->action_index]);
