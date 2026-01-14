@@ -662,11 +662,11 @@ void Scooby::reward(uint64_t address)
 			ptentry->timestamp = get_cpu_cycle(0);
 		else {
 			uint64_t delta = get_cpu_cycle(0) - ptentry->timestamp;
-			if (delta < knob::scooby_reward_timely_divisor) {
-				ptentry->delta = knob::scooby_reward_timely_divisor - delta;
+			if (delta < knob::scooby_reward_bias) {
+				ptentry->delta = knob::scooby_reward_bias - delta;
 				assign_reward(ptentry, RewardType::correct_untimely);
 			} else {
-				ptentry->delta = delta - knob::scooby_reward_timely_divisor;
+				ptentry->delta = delta - knob::scooby_reward_bias;
 				assign_reward(ptentry, RewardType::correct_timely);
 			}
 			ptentry->has_reward = true;
@@ -741,12 +741,14 @@ int32_t Scooby::compute_reward(Scooby_PTEntry *ptentry, RewardType type)
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_timely : knob::scooby_reward_correct_timely;
 		uint32_t div = knob::scooby_reward_timely_divisor;
 		reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
+		MYLOG("Prefetched Timely: Delta: %lu, Reward: %d, Address: %lu", ptentry->delta, reward, ptentry->address);
 	}
 	else if(type == RewardType::correct_untimely)
 	{
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_untimely : knob::scooby_reward_correct_untimely;
 		uint32_t div = knob::scooby_reward_untimely_divisor;
     	reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
+		MYLOG("Prefetched Untimely: Delta: %lu, Reward: %d, Address: %lu", ptentry->delta, reward, ptentry->address);
 	}
 	else if(type == RewardType::incorrect)
 	{
