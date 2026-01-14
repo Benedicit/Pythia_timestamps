@@ -7,7 +7,7 @@
 #include "scooby.h"
 #include "util.h"
 
-#if 0
+#if 1
 #	define LOCKED(...) {fflush(stdout); __VA_ARGS__; fflush(stdout);}
 #	define LOGID() fprintf(stdout, "[%25s@%3u] ", \
 							__FUNCTION__, __LINE__ \
@@ -257,6 +257,7 @@ void Scooby::print_config()
 		<< "scooby_reward_hbw_tracker_hit " << knob::scooby_reward_hbw_tracker_hit << endl
 		<< "scooby_last_pref_offset_conf_thresholds_hbw " << array_to_string(knob::scooby_last_pref_offset_conf_thresholds_hbw) << endl
 		<< "scooby_dyn_degrees_type2_hbw " << array_to_string(knob::scooby_dyn_degrees_type2_hbw) << endl
+		<< "scooby_reward_bias " << knob::scooby_reward_bias << endl
 		<< endl
 		<< "le_enable_trace " << knob::le_enable_trace << endl
 		<< "le_trace_interval " << knob::le_trace_interval << endl
@@ -303,8 +304,8 @@ void Scooby::invoke_prefetcher(uint64_t pc, uint64_t address, uint8_t cache_hit,
 	uint64_t page = address >> LOG2_PAGE_SIZE;
 	uint32_t offset = (address >> LOG2_BLOCK_SIZE) & ((1ull << (LOG2_PAGE_SIZE - LOG2_BLOCK_SIZE)) - 1);
 
-	MYLOG("---------------------------------------------------------------------");
-	MYLOG("%s %lx pc %lx page %lx off %u", GetAccessType(type), address, pc, page, offset);
+	//MYLOG("---------------------------------------------------------------------");
+	//MYLOG("%s %lx pc %lx page %lx off %u", GetAccessType(type), address, pc, page, offset);
 
 	/* compute reward on demand */
 	reward(address);
@@ -388,7 +389,7 @@ Scooby_STEntry* Scooby::update_local_state(uint64_t pc, uint64_t page, uint32_t 
 
 uint32_t Scooby::predict(uint64_t base_address, uint64_t page, uint32_t offset, State *state, vector<uint64_t> &pref_addr)
 {
-	MYLOG("addr@%lx page %lx off %u state %x", base_address, page, offset, state->value());
+	//MYLOG("addr@%lx page %lx off %u state %x", base_address, page, offset, state->value());
 
 	stats.predict.called++;
 
@@ -422,7 +423,7 @@ uint32_t Scooby::predict(uint64_t base_address, uint64_t page, uint32_t offset, 
 	}
 	assert(action_index < knob::scooby_max_actions);
 
-	MYLOG("act_idx %u act %d", action_index, Actions[action_index]);
+	//MYLOG("act_idx %u act %d", action_index, Actions[action_index]);
 
 	uint64_t addr = 0xdeadbeef;
 	Scooby_PTEntry *ptentry = NULL;
@@ -433,7 +434,7 @@ uint32_t Scooby::predict(uint64_t base_address, uint64_t page, uint32_t offset, 
 		if(predicted_offset >=0 && predicted_offset < 64) /* falls within the page */
 		{
 			addr = (page << LOG2_PAGE_SIZE) + (predicted_offset << LOG2_BLOCK_SIZE);
-			MYLOG("pred_off %d pred_addr %lx", predicted_offset, addr);
+			//MYLOG("pred_off %d pred_addr %lx", predicted_offset, addr);
 			/* track prefetch */
 			bool new_addr = track(addr, state, action_index, &ptentry);
 			if(new_addr)
@@ -450,7 +451,7 @@ uint32_t Scooby::predict(uint64_t base_address, uint64_t page, uint32_t offset, 
 			}
 			else
 			{
-				MYLOG("pred_off %d tracker_hit", predicted_offset);
+				//MYLOG("pred_off %d tracker_hit", predicted_offset);
 				stats.predict.pred_hit[action_index]++;
 				if(knob::scooby_enable_reward_tracker_hit)
 				{
@@ -465,7 +466,7 @@ uint32_t Scooby::predict(uint64_t base_address, uint64_t page, uint32_t offset, 
 		}
 		else
 		{
-			MYLOG("pred_off %d out_of_bounds", predicted_offset);
+			//MYLOG("pred_off %d out_of_bounds", predicted_offset);
 			stats.predict.out_of_bounds++;
 			stats.predict.out_of_bounds_dist[action_index]++;
 			if(knob::scooby_enable_reward_out_of_bounds)
@@ -480,7 +481,7 @@ uint32_t Scooby::predict(uint64_t base_address, uint64_t page, uint32_t offset, 
 	}
 	else
 	{
-		MYLOG("no prefecth");
+		//MYLOG("no prefetch");
 		/* agent decided not to prefetch */
 		addr = 0xdeadbeef;
 		/* track no prefetch */
@@ -490,7 +491,7 @@ uint32_t Scooby::predict(uint64_t base_address, uint64_t page, uint32_t offset, 
 	}
 
 	stats.predict.predicted += pref_addr.size();
-	MYLOG("end@%lx", base_address);
+	//MYLOG("end@%lx", base_address);
 
 	return pref_addr.size();
 }
@@ -499,7 +500,7 @@ uint32_t Scooby::predict(uint64_t base_address, uint64_t page, uint32_t offset, 
  * false otherwise */
 bool Scooby::track(uint64_t address, State *state, uint32_t action_index, Scooby_PTEntry **tracker)
 {
-	MYLOG("addr@%lx state %x act_idx %u act %d", address, state->value(), action_index, Actions[action_index]);
+	//MYLOG("addr@%lx state %x act_idx %u act %d", address, state->value(), action_index, Actions[action_index]);
 	stats.track.called++;
 
 	bool new_addr = true;
@@ -528,10 +529,10 @@ bool Scooby::track(uint64_t address, State *state, uint32_t action_index, Scooby
 		stats.track.evict++;
 		ptentry = prefetch_tracker.front();
 		prefetch_tracker.pop_front();
-		MYLOG("victim_state %x victim_act_idx %u victim_act %d", ptentry->state->value(), ptentry->action_index, Actions[ptentry->action_index]);
+		//MYLOG("victim_state %x victim_act_idx %u victim_act %d", ptentry->state->value(), ptentry->action_index, Actions[ptentry->action_index]);
 		if(last_evicted_tracker)
 		{
-			MYLOG("last_victim_state %x last_victim_act_idx %u last_victim_act %d", last_evicted_tracker->state->value(), last_evicted_tracker->action_index, Actions[last_evicted_tracker->action_index]);
+			//MYLOG("last_victim_state %x last_victim_act_idx %u last_victim_act %d", last_evicted_tracker->state->value(), last_evicted_tracker->action_index, Actions[last_evicted_tracker->action_index]);
 			/* train the agent */
 			train(ptentry, last_evicted_tracker);
 			delete last_evicted_tracker->state;
@@ -545,7 +546,7 @@ bool Scooby::track(uint64_t address, State *state, uint32_t action_index, Scooby
 	assert(prefetch_tracker.size() <= knob::scooby_pt_size);
 
 	(*tracker) = ptentry;
-	MYLOG("end@%lx", address);
+	//MYLOG("end@%lx", address);
 
 	return new_addr;
 }
@@ -564,7 +565,7 @@ void Scooby::gen_multi_degree_pref(uint64_t page, uint32_t offset, int32_t actio
 			{
 				addr = (page << LOG2_PAGE_SIZE) + (predicted_offset << LOG2_BLOCK_SIZE);
 				pref_addr.push_back(addr);
-				MYLOG("degree %u pred_off %d pred_addr %lx", degree, predicted_offset, addr);
+				//MYLOG("degree %u pred_off %d pred_addr %lx", degree, predicted_offset, addr);
 				stats.predict.multi_deg++;
 				stats.predict.multi_deg_histogram[degree]++;
 			}
@@ -621,14 +622,14 @@ uint32_t Scooby::get_dyn_pref_degree(float max_to_avg_q_ratio, uint64_t page, in
  * Should we reward all? */
 void Scooby::reward(uint64_t address)
 {
-	MYLOG("addr @ %lx", address);
+	//MYLOG("addr @ %lx", address);
 
 	stats.reward.demand.called++;
 	vector<Scooby_PTEntry*> ptentries = search_pt(address, knob::scooby_enable_reward_all);
 
 	if(ptentries.empty())
 	{
-		MYLOG("PT miss");
+		//MYLOG("PT miss");
 		stats.reward.demand.pt_not_found++;
 		return;
 	}
@@ -642,19 +643,19 @@ void Scooby::reward(uint64_t address)
 		Scooby_PTEntry *ptentry = ptentries[index];
 		stats.reward.demand.pt_found_total++;
 
-		MYLOG("PT hit. state %x act_idx %u act %d", ptentry->state->value(), ptentry->action_index, Actions[ptentry->action_index]);
+		//MYLOG("PT hit. state %x act_idx %u act %d", ptentry->state->value(), ptentry->action_index, Actions[ptentry->action_index]);
 		/* Do not compute reward if already has a reward.
 		 * This can happen when a prefetch access sees multiple demand reuse */
 		if(ptentry->has_reward)
 		{
-			MYLOG("entry already has reward: %d", ptentry->reward);
+			//MYLOG("entry already has reward: %d", ptentry->reward);
 			stats.reward.demand.has_reward++;
 
 			// Already rewarded this PT entry (e.g., earlier demand reuse or fill-time reward).
 			// Use `continue` (not `return`) so we still process other matching PT entries when
 			// reward-all / track-multiple is enabled (or if duplicates exist). This avoids
 			// skipping rewards/timestamp updates for remaining entries.
-			continue;
+			return;
 		}
 
 		// Set timestamp for demand access if not set
@@ -663,6 +664,7 @@ void Scooby::reward(uint64_t address)
 		else {
 			uint64_t delta = get_cpu_cycle(0) - ptentry->timestamp;
 			if (delta < knob::scooby_reward_bias) {
+				// FIX:
 				ptentry->delta = knob::scooby_reward_bias - delta;
 				assign_reward(ptentry, RewardType::correct_untimely);
 			} else {
@@ -677,7 +679,7 @@ void Scooby::reward(uint64_t address)
 /* This reward function is called during eviction from prefetch_tracker */
 void Scooby::reward(Scooby_PTEntry *ptentry)
 {
-	MYLOG("reward PT evict %lx state %x act_idx %u act %d", ptentry->address, ptentry->state->value(), ptentry->action_index, Actions[ptentry->action_index]);
+	//MYLOG("reward PT evict %lx state %x act_idx %u act %d", ptentry->address, ptentry->state->value(), ptentry->action_index, Actions[ptentry->action_index]);
 
 	// TODO: Check also in case of untimely that the diff is set and handle it prperly
 	stats.reward.train.called++;
@@ -691,19 +693,19 @@ void Scooby::reward(Scooby_PTEntry *ptentry)
 	if(ptentry->address == 0xdeadbeef) /* no prefetch */
 	{
 		assign_reward(ptentry, RewardType::none);
-		MYLOG("assigned reward no_pref(%d)", ptentry->reward);
+		//MYLOG("assigned reward no_pref(%d)", ptentry->reward);
 	}
 	else /* incorrect prefetch */
 	{
 		assign_reward(ptentry, RewardType::incorrect);
-		MYLOG("assigned reward incorrect(%d)", ptentry->reward);
+		//MYLOG("assigned reward incorrect(%d)", ptentry->reward);
 	}
 	ptentry->has_reward = true;
 }
 
 void Scooby::assign_reward(Scooby_PTEntry *ptentry, RewardType type)
 {
-	MYLOG("assign_reward PT evict %lx state %x act_idx %u act %d", ptentry->address, ptentry->state->value(), ptentry->action_index, Actions[ptentry->action_index]);
+	//MYLOG("assign_reward PT evict %lx state %x act_idx %u act %d", ptentry->address, ptentry->state->value(), ptentry->action_index, Actions[ptentry->action_index]);
 	assert(!ptentry->has_reward);
 
 	/* compute the reward */
@@ -777,8 +779,8 @@ int32_t Scooby::compute_reward(Scooby_PTEntry *ptentry, RewardType type)
 
 void Scooby::train(Scooby_PTEntry *curr_evicted, Scooby_PTEntry *last_evicted)
 {
-	MYLOG("victim %s %u %d last_victim %s %u %d", curr_evicted->state->to_string().c_str(), curr_evicted->action_index, Actions[curr_evicted->action_index],
-												last_evicted->state->to_string().c_str(), last_evicted->action_index, Actions[last_evicted->action_index]);
+	//MYLOG("victim %s %u %d last_victim %s %u %d", curr_evicted->state->to_string().c_str(), curr_evicted->action_index, Actions[curr_evicted->action_index],
+	//											last_evicted->state->to_string().c_str(), last_evicted->action_index, Actions[last_evicted->action_index]);
 
 	stats.train.called++;
 	if(!last_evicted->has_reward)
@@ -789,9 +791,9 @@ void Scooby::train(Scooby_PTEntry *curr_evicted, Scooby_PTEntry *last_evicted)
 	assert(last_evicted->has_reward);
 
 	/* train */
-	MYLOG("===SARSA=== S1: %s A1: %u R1: %d S2: %s A2: %u", last_evicted->state->to_string().c_str(), last_evicted->action_index,
-															last_evicted->reward,
-															curr_evicted->state->to_string().c_str(), curr_evicted->action_index);
+	//MYLOG("===SARSA=== S1: %s A1: %u R1: %d S2: %s A2: %u", last_evicted->state->to_string().c_str(), last_evicted->action_index,
+	//														last_evicted->reward,
+	//														curr_evicted->state->to_string().c_str(), curr_evicted->action_index);
 	if(knob::scooby_enable_featurewise_engine)
 	{
 		brain_featurewise->learn(last_evicted->state, last_evicted->action_index, last_evicted->reward, curr_evicted->state, curr_evicted->action_index,
@@ -801,7 +803,7 @@ void Scooby::train(Scooby_PTEntry *curr_evicted, Scooby_PTEntry *last_evicted)
 	{
 		brain->learn(last_evicted->state->value(), last_evicted->action_index, last_evicted->reward, curr_evicted->state->value(), curr_evicted->action_index);
 	}
-	MYLOG("train done");
+	//MYLOG("train done");
 }
 
 /* TODO: what if multiple prefetch request generated the same address?
@@ -809,7 +811,7 @@ void Scooby::train(Scooby_PTEntry *curr_evicted, Scooby_PTEntry *last_evicted)
  * Do we need to set it for everyone? */
 void Scooby::register_fill(uint64_t address)
 {
-	MYLOG("fill @ %lx", address);
+	//MYLOG("fill @ %lx", address);
 
 	stats.register_fill.called++;
 	vector<Scooby_PTEntry*> ptentries = search_pt(address, knob::scooby_enable_reward_all);
@@ -822,22 +824,24 @@ void Scooby::register_fill(uint64_t address)
 			if (!ptentries[index]->is_filled) {
 				ptentries[index]->is_filled = true;
 				ptentries[index]->timestamp = get_cpu_cycle(0);
+				MYLOG("Register filled: Timestamp %lu", ptentries[index]->timestamp);
 			}
 
 			// If the fill is late (fill happens after demand), mark as correct_untimely and set reward
 			if(!ptentries[index]->has_reward && ptentries[index]->timestamp != 0)
 			{
-				ptentries[index]->delta = get_cpu_cycle(0) - ptentries[index]->timestamp + knob::scooby_reward_timely_divisor;
+				ptentries[index]->delta = get_cpu_cycle(0) - ptentries[index]->timestamp + knob::scooby_reward_bias;
 				assign_reward(ptentries[index], RewardType::correct_untimely);
+				MYLOG("Register filled: Timestamp %lu, Delta: %lu", ptentries[index]->timestamp,  ptentries[index]->delta);
 			}
-			MYLOG("fill PT hit. pref with act_idx %u act %d", ptentries[index]->action_index, Actions[ptentries[index]->action_index]);
+			//MYLOG("fill PT hit. pref with act_idx %u act %d", ptentries[index]->action_index, Actions[ptentries[index]->action_index]);
 		}
 	}
 }
 
 void Scooby::register_prefetch_hit(uint64_t address)
 {
-	MYLOG("pref_hit @ %lx", address);
+	//MYLOG("pref_hit @ %lx", address);
 
 	stats.register_prefetch_hit.called++;
 	vector<Scooby_PTEntry*> ptentries = search_pt(address, knob::scooby_enable_reward_all);
@@ -848,7 +852,7 @@ void Scooby::register_prefetch_hit(uint64_t address)
 		{
 			stats.register_prefetch_hit.set_total++;
 			ptentries[index]->pf_cache_hit = true;
-			MYLOG("pref_hit PT hit. pref with act_idx %u act %d", ptentries[index]->action_index, Actions[ptentries[index]->action_index]);
+			//MYLOG("pref_hit PT hit. pref with act_idx %u act %d", ptentries[index]->action_index, Actions[ptentries[index]->action_index]);
 		}
 	}
 }
