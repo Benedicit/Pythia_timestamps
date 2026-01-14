@@ -660,7 +660,10 @@ void Scooby::reward(uint64_t address)
 
 		// Set timestamp for demand access if not set
 		if (ptentry->timestamp == 0)
+		{
 			ptentry->timestamp = get_cpu_cycle(0);
+		}
+
 		else {
 			uint64_t delta = get_cpu_cycle(0) - ptentry->timestamp;
 			if (delta < knob::scooby_reward_bias) {
@@ -743,6 +746,9 @@ int32_t Scooby::compute_reward(Scooby_PTEntry *ptentry, RewardType type)
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_timely : knob::scooby_reward_correct_timely;
 		uint32_t div = knob::scooby_reward_timely_divisor;
 		reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
+
+		reward = max(5, reward);
+
 		MYLOG("Prefetched Timely: Delta: %lu, Reward: %d, Address: %lu", ptentry->delta, reward, ptentry->address);
 	}
 	else if(type == RewardType::correct_untimely)
@@ -750,6 +756,9 @@ int32_t Scooby::compute_reward(Scooby_PTEntry *ptentry, RewardType type)
 		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_untimely : knob::scooby_reward_correct_untimely;
 		uint32_t div = knob::scooby_reward_untimely_divisor;
     	reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
+
+		reward = max(5, reward);
+
 		MYLOG("Prefetched Untimely: Delta: %lu, Reward: %d, Address: %lu", ptentry->delta, reward, ptentry->address);
 	}
 	else if(type == RewardType::incorrect)
@@ -821,15 +830,14 @@ void Scooby::register_fill(uint64_t address)
 		for(uint32_t index = 0; index < ptentries.size(); ++index)
 		{
 			stats.register_fill.set_total++;
-			if (!ptentries[index]->is_filled) {
+			if (!ptentries[index]->is_filled && !ptentries[index]->timestamp) {
 				ptentries[index]->is_filled = true;
 				ptentries[index]->timestamp = get_cpu_cycle(0);
 				MYLOG("Register filled: Timestamp %lu", ptentries[index]->timestamp);
 			}
-
-			// If the fill is late (fill happens after demand), mark as correct_untimely and set reward
-			if(!ptentries[index]->has_reward && ptentries[index]->timestamp != 0)
+			else if (!ptentries[index]->has_reward && ptentries[index]->timestamp != 0)
 			{
+			// If the fill is late (fill happens after demand), mark as correct_untimely and set reward
 				ptentries[index]->delta = get_cpu_cycle(0) - ptentries[index]->timestamp + knob::scooby_reward_bias;
 				assign_reward(ptentries[index], RewardType::correct_untimely);
 				MYLOG("Register filled: Timestamp %lu, Delta: %lu", ptentries[index]->timestamp,  ptentries[index]->delta);
