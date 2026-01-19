@@ -230,7 +230,7 @@ namespace knob
 	vector<int32_t> scooby_dyn_degrees_type2_hbw;
 	uint32_t scooby_reward_timely_divisor = 1000;
 	uint32_t scooby_reward_untimely_divisor = 1000;
-	uint64_t scooby_reward_bias = 5;
+	uint64_t scooby_reward_bias = 0;
 
 	/* Learning Engine */
 	bool     le_enable_trace;

@@ -7,7 +7,7 @@
 #include "scooby.h"
 #include "util.h"
 
-#if 1
+#if 0
 #	define LOCKED(...) {fflush(stdout); __VA_ARGS__; fflush(stdout);}
 #	define LOGID() fprintf(stdout, "[%25s@%3u] ", \
 							__FUNCTION__, __LINE__ \
@@ -748,24 +748,13 @@ int32_t Scooby::compute_reward(Scooby_PTEntry *ptentry, RewardType type)
 		uint32_t div = knob::scooby_reward_timely_divisor;
 		reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
 
-		reward = max(12, reward);
+		reward = max(15, reward);
 
 		MYLOG("Prefetched Timely: Delta: %lu, Reward: %d, Address: %lu", ptentry->delta, reward, ptentry->address);
 	}
 	else if(type == RewardType::correct_untimely)
 	{
-		if (ptentry->is_filled)
-		{
-			int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_untimely : knob::scooby_reward_correct_untimely;
-			uint32_t div = knob::scooby_reward_untimely_divisor;
-			reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
-			reward = max(8, reward);
-			MYLOG("Prefetched Untimely: Delta: %lu, Reward: %d, Address: %lu", ptentry->delta, reward, ptentry->address);
-		}
-		else
-		{
-			reward = 7;
-		}
+		reward = 9;
 	}
 	else if(type == RewardType::incorrect)
 	{
@@ -805,7 +794,7 @@ void Scooby::train(Scooby_PTEntry *curr_evicted, Scooby_PTEntry *last_evicted)
 	}
 	assert(last_evicted->has_reward);
 
-	if (last_evicted->reward_type == correct_untimely)
+	if (last_evicted->reward_type == correct_untimely && last_evicted->is_filled == false)
 	{
 		MYLOG("Untimely evicted! Filled bit: %d", last_evicted->is_filled);
 	}
@@ -853,6 +842,12 @@ void Scooby::register_fill(uint64_t address)
 					ptentries[index]->delta = get_cpu_cycle(0) - ptentries[index]->timestamp + knob::scooby_reward_bias;
 					//assign_reward(ptentries[index], RewardType::correct_untimely);
 					//MYLOG("Register filled: Untimely: Delta: %lu", ptentries[index]->delta);
+
+					int32_t baseReward = knob::scooby_reward_correct_untimely;
+					uint32_t div = knob::scooby_reward_untimely_divisor;
+					ptentries[index]->reward = baseReward - static_cast<int32_t>(ptentries[index]->delta >> div);
+					ptentries[index]->reward = max((int64_t) 12, ptentries[index]->reward);
+					MYLOG("Prefetched Untimely: Delta: %lu, Reward: %ld, Address: %lu", ptentries[index]->delta, ptentries[index]->reward, ptentries[index]->address);
 				}
 			}
 			ptentries[index]->is_filled = true;
