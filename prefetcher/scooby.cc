@@ -831,7 +831,7 @@ void Scooby::register_fill(uint64_t address)
 		{
 			Scooby_PTEntry *ptentry = ptentries[index];
 			stats.register_fill.set_total++;
-			if (ptentry->is_filled) {
+			if (!ptentry->is_filled) {
 				//MYLOG("Register filled: Timestamp %lu, Address: %lu", ptentries[index]->timestamp, ptentries[index]->address);
 				if (ptentry->timestamp == 0)
 				{
