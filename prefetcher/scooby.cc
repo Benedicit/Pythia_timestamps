@@ -845,8 +845,8 @@ void Scooby::register_fill(uint64_t address)
 
 					int32_t baseReward = knob::scooby_reward_correct_untimely;
 					uint32_t div = knob::scooby_reward_untimely_divisor;
-					ptentries[index]->reward = baseReward - static_cast<int32_t>(ptentries[index]->delta >> div);
-					ptentries[index]->reward = max((int64_t) 12, ptentries[index]->reward);
+					int64_t reward = baseReward - static_cast<int32_t>(ptentries[index]->delta >> div);
+					ptentries[index]->reward = max((int64_t) 12, reward);
 					MYLOG("Prefetched Untimely: Delta: %lu, Reward: %ld, Address: %lu", ptentries[index]->delta, ptentries[index]->reward, ptentries[index]->address);
 				}
 			}
