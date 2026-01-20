@@ -21,3 +21,6 @@ tags
 *.out
 libbf/
 .idea/
+*.csv
+*.pdf
+experiments/experiments_1C/
