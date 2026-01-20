@@ -829,28 +829,29 @@ void Scooby::register_fill(uint64_t address)
 		stats.register_fill.set++;
 		for(uint32_t index = 0; index < ptentries.size(); ++index)
 		{
+			Scooby_PTEntry *ptentry = ptentries[index];
 			stats.register_fill.set_total++;
-			if (!ptentries[index]->is_filled) {
+			if (ptentry->is_filled) {
 				//MYLOG("Register filled: Timestamp %lu, Address: %lu", ptentries[index]->timestamp, ptentries[index]->address);
-				if (ptentries[index]->timestamp == 0)
+				if (ptentry->timestamp == 0)
 				{
-					ptentries[index]->timestamp = get_cpu_cycle(0);
+					ptentry->timestamp = get_cpu_cycle(0);
 					//MYLOG("Register filled: Timely: %lu", ptentries[index]->delta);
 				}
 				else
 				{
-					ptentries[index]->delta = get_cpu_cycle(0) - ptentries[index]->timestamp + knob::scooby_reward_bias;
+					ptentry->delta = get_cpu_cycle(0) - ptentry->timestamp + knob::scooby_reward_bias;
 					//assign_reward(ptentries[index], RewardType::correct_untimely);
 					//MYLOG("Register filled: Untimely: Delta: %lu", ptentries[index]->delta);
 
 					int32_t baseReward = knob::scooby_reward_correct_untimely;
 					uint32_t div = knob::scooby_reward_untimely_divisor;
-					int64_t reward = baseReward - static_cast<int32_t>(ptentries[index]->delta >> div);
-					ptentries[index]->reward = max((int64_t) 12, reward);
+					int64_t reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
+					ptentry->reward = max((int64_t) 12, reward);
 					MYLOG("Prefetched Untimely: Delta: %lu, Reward: %ld, Address: %lu", ptentries[index]->delta, ptentries[index]->reward, ptentries[index]->address);
 				}
 			}
-			ptentries[index]->is_filled = true;
+			ptentry->is_filled = true;
 			//MYLOG("fill PT hit. pref with act_idx %u act %d", ptentries[index]->action_index, Actions[ptentries[index]->action_index]);
 		}
 	}
