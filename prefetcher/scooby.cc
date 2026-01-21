@@ -7,7 +7,7 @@
 #include "scooby.h"
 #include "util.h"
 
-#if 0
+#if 1
 #	define LOCKED(...) {fflush(stdout); __VA_ARGS__; fflush(stdout);}
 #	define LOGID() fprintf(stdout, "[%25s@%3u] ", \
 							__FUNCTION__, __LINE__ \
@@ -85,6 +85,10 @@ namespace knob
 	extern uint32_t scooby_reward_timely_divisor;
 	extern uint32_t scooby_reward_untimely_divisor;
 	extern uint64_t scooby_reward_bias;
+	extern int64_t scooby_lowerbound_untimely;
+	extern int32_t scooby_lowerbound_timely;
+	extern int32_t scooby_reward_untimely_loaded;
+	extern bool scooby_use_timestamp;
 
 	/* Learning Engine knobs */
 	extern bool     le_enable_trace;
@@ -663,15 +667,15 @@ void Scooby::reward(uint64_t address)
 		{
 			ptentry->timestamp = get_cpu_cycle(0);
 			assign_reward(ptentry, RewardType::correct_untimely);
-			//MYLOG("ALARM!!! Address: %lu", ptentry->address);
 		}
-		else {
+		else
+		{
 			uint64_t delta = get_cpu_cycle(0) - ptentry->timestamp;
-			if (delta < knob::scooby_reward_bias) {
-				// FIX:
+			if (delta < knob::scooby_reward_bias && knob::scooby_use_timestamp) {
 				ptentry->delta = knob::scooby_reward_bias - delta;
 				assign_reward(ptentry, RewardType::correct_untimely);
 			} else {
+				// NOTE: For better readability and debug purposes the delta is stored, but it's possible to do only have it a temporary variable
 				ptentry->delta = delta - knob::scooby_reward_bias;
 				assign_reward(ptentry, RewardType::correct_timely);
 			}
@@ -744,17 +748,23 @@ int32_t Scooby::compute_reward(Scooby_PTEntry *ptentry, RewardType type)
 
 	if(type == RewardType::correct_timely)
 	{
-		int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_timely : knob::scooby_reward_correct_timely;
-		uint32_t div = knob::scooby_reward_timely_divisor;
-		reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
+		const int32_t baseReward = high_bw ? knob::scooby_reward_hbw_correct_timely : knob::scooby_reward_correct_timely;
+		if (knob::scooby_use_timestamp)
+		{
+			const uint32_t div = knob::scooby_reward_timely_divisor;
+			reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
 
-		reward = max(15, reward);
-
+			reward = max(knob::scooby_lowerbound_timely, reward);
+		}
+		else
+		{
+			reward = baseReward;
+		}
 		MYLOG("Prefetched Timely: Delta: %lu, Reward: %d, Address: %lu", ptentry->delta, reward, ptentry->address);
 	}
 	else if(type == RewardType::correct_untimely)
 	{
-		reward = 9;
+		reward = knob::scooby_reward_correct_untimely;
 	}
 	else if(type == RewardType::incorrect)
 	{
@@ -796,7 +806,13 @@ void Scooby::train(Scooby_PTEntry *curr_evicted, Scooby_PTEntry *last_evicted)
 
 	if (last_evicted->reward_type == correct_untimely && last_evicted->is_filled == false)
 	{
-		MYLOG("Untimely evicted! Filled bit: %d", last_evicted->is_filled);
+		MYLOG("Untimely evicted! Reward: %ld", last_evicted->reward);
+	} else if (last_evicted->reward_type == incorrect)
+	{
+		MYLOG("Incorrect evicted")
+	} else if (last_evicted->reward_type == out_of_bounds)
+	{
+		MYLOG("OOB evicted")
 	}
 
 	/* train */
@@ -829,29 +845,28 @@ void Scooby::register_fill(uint64_t address)
 		stats.register_fill.set++;
 		for(uint32_t index = 0; index < ptentries.size(); ++index)
 		{
-			Scooby_PTEntry *ptentry = ptentries[index];
 			stats.register_fill.set_total++;
-			if (!ptentry->is_filled) {
+			if (!ptentries[index]->is_filled && knob::scooby_use_timestamp) {
 				//MYLOG("Register filled: Timestamp %lu, Address: %lu", ptentries[index]->timestamp, ptentries[index]->address);
-				if (ptentry->timestamp == 0)
+				if (ptentries[index]->timestamp == 0)
 				{
-					ptentry->timestamp = get_cpu_cycle(0);
+					ptentries[index]->timestamp = get_cpu_cycle(0);
 					//MYLOG("Register filled: Timely: %lu", ptentries[index]->delta);
 				}
 				else
 				{
-					ptentry->delta = get_cpu_cycle(0) - ptentry->timestamp + knob::scooby_reward_bias;
+					ptentries[index]->delta = get_cpu_cycle(0) - ptentries[index]->timestamp + knob::scooby_reward_bias;
 					//assign_reward(ptentries[index], RewardType::correct_untimely);
 					//MYLOG("Register filled: Untimely: Delta: %lu", ptentries[index]->delta);
 
-					int32_t baseReward = knob::scooby_reward_correct_untimely;
-					uint32_t div = knob::scooby_reward_untimely_divisor;
-					int64_t reward = baseReward - static_cast<int32_t>(ptentry->delta >> div);
-					ptentry->reward = max((int64_t) 12, reward);
+					const int32_t baseReward = knob::scooby_reward_untimely_loaded;
+					const uint32_t div = knob::scooby_reward_untimely_divisor;
+					ptentries[index]->reward = baseReward - static_cast<int32_t>(ptentries[index]->delta >> div);
+					ptentries[index]->reward = max(knob::scooby_lowerbound_untimely, ptentries[index]->reward);
 					MYLOG("Prefetched Untimely: Delta: %lu, Reward: %ld, Address: %lu", ptentries[index]->delta, ptentries[index]->reward, ptentries[index]->address);
 				}
 			}
-			ptentry->is_filled = true;
+			ptentries[index]->is_filled = true;
 			//MYLOG("fill PT hit. pref with act_idx %u act %d", ptentries[index]->action_index, Actions[ptentries[index]->action_index]);
 		}
 	}

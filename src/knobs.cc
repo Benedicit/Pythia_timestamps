@@ -228,9 +228,13 @@ namespace knob
 	int32_t  scooby_reward_hbw_tracker_hit = -2;
 	vector<int32_t> scooby_last_pref_offset_conf_thresholds_hbw;
 	vector<int32_t> scooby_dyn_degrees_type2_hbw;
-	uint32_t scooby_reward_timely_divisor = 1000;
-	uint32_t scooby_reward_untimely_divisor = 1000;
+	uint32_t scooby_reward_timely_divisor = 6;
+	uint32_t scooby_reward_untimely_divisor = 2;
 	uint64_t scooby_reward_bias = 0;
+	int64_t scooby_lowerbound_untimely = 12;
+	int32_t scooby_lowerbound_timely = 15;
+	uint32_t scooby_reward_untimely_loaded = 25;
+	bool scooby_use_timestamp = true;
 
 	/* Learning Engine */
 	bool     le_enable_trace;
@@ -1101,6 +1105,22 @@ int parse_knobs(void* user, const char* section, const char* name, const char* v
 	else if (MATCH("", "scooby_reward_bias"))
 	{
 		knob::scooby_reward_bias = atoi(value);
+	}
+	else if (MATCH("", "scooby_lowerbound_untimely"))
+	{
+		knob::scooby_lowerbound_untimely = atoi(value);
+	}
+	else if (MATCH("", "scooby_lowerbound_timely"))
+	{
+		knob::scooby_lowerbound_timely = atoi(value);
+	}
+	else if (MATCH("", "scooby_reward_untimely_loaded"))
+	{
+		knob::scooby_reward_untimely_loaded = atoi(value);
+	}
+	else if (MATCH("", "scooby_use_timestamp"))
+	{
+		knob::scooby_use_timestamp = !strcmp(value, "true") ? true : false;
 	}
 
 	/* Learning Engine */
